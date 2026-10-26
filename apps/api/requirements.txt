@@ -1,1 +1,4 @@
-# Dependencies are added in deliverable 4 and pinned at install time.
+sqlalchemy[asyncio]==2.0.55
+asyncpg==0.32.0
+alembic==1.20.1
+geoalchemy2==0.20.0
