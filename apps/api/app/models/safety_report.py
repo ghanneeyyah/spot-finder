@@ -26,7 +26,9 @@ class SafetyReport(Base):
     )
     reported_tier: Mapped[str] = mapped_column(Text, nullable=False)
     comment: Mapped[str | None] = mapped_column(Text)
-    is_moderated: Mapped[bool | None] = mapped_column(Boolean, server_default=text("FALSE"))
-    created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+    is_moderated: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("FALSE")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

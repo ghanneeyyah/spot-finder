@@ -20,6 +20,6 @@ class AuditLog(Base):
     entity_type: Mapped[str] = mapped_column(Text, nullable=False)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     metadata_: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB)
-    created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

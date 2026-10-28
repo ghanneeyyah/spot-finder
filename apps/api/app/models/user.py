@@ -19,10 +19,13 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(Text)
     email: Mapped[str | None] = mapped_column(Text)
     role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'user'"))
-    is_active: Mapped[bool | None] = mapped_column(Boolean, server_default=text("TRUE"))
-    created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("TRUE")
     )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    # Maintained by the set_updated_at() database trigger.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

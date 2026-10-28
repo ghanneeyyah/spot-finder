@@ -61,14 +61,19 @@ class Spot(Base):
     amenities: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, server_default=text("'{}'::jsonb")
     )
-    is_verified: Mapped[bool | None] = mapped_column(Boolean, server_default=text("FALSE"))
-    is_active: Mapped[bool | None] = mapped_column(Boolean, server_default=text("TRUE"))
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("FALSE")
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("TRUE")
+    )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )
-    created_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    # Maintained by the set_updated_at() database trigger.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
