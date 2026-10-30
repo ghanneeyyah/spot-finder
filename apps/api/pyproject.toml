@@ -12,15 +12,21 @@ src = ["app", "tests", "scripts"]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "T20", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]
+"tests/*" = ["S101", "S105", "S106"]
 "alembic/versions/*" = ["S608"]
 "scripts/*" = ["E402"]
 
 [tool.mypy]
 python_version = "3.13"
 strict = true
-files = ["app", "scripts", "alembic"]
+files = ["app", "scripts", "alembic", "tests"]
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[[tool.mypy.overrides]]
+module = ["cloudinary.*", "google.*"]
+ignore_missing_imports = true

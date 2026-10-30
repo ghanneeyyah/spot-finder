@@ -4,6 +4,9 @@ Run from apps/api, after `alembic upgrade head`:
 
     DATABASE_URL=postgresql://... python scripts/seed.py
 
+Every spot is seeded as 'unverified' with no score: tiers come only from real community
+reports, so the seed never asserts anything about safety.
+
 Idempotent: a spot whose slug already exists is left untouched, so re-running never
 overwrites edits and never deletes real data. Refuses to run when ENVIRONMENT=production.
 
@@ -69,8 +72,8 @@ SPOTS: list[SeedSpot] = [
         address="Lekki-Epe Expressway, Lekki",
         lat=6.4372,
         lng=3.5350,
-        safety_tier="green",
-        safety_score=Decimal("8.4"),
+        safety_tier="unverified",
+        safety_score=None,
         cost_estimate_text="₦3,000 to ₦8,000 per person including the canopy walk",
         best_time="Weekday mornings, November to March",
         amenities={"parking": True, "restrooms": True, "food": True, "guided_tours": True},
@@ -85,8 +88,8 @@ SPOTS: list[SeedSpot] = [
         address="Olumo Rock Road, Abeokuta",
         lat=7.1517,
         lng=3.3405,
-        safety_tier="green",
-        safety_score=Decimal("8.1"),
+        safety_tier="unverified",
+        safety_score=None,
         cost_estimate_text="₦2,000 to ₦5,000 per person with a guide",
         best_time="Morning, dry season",
         amenities={"parking": True, "restrooms": True, "food": False, "guided_tours": True},
@@ -101,8 +104,8 @@ SPOTS: list[SeedSpot] = [
         address="Elegushi, Lekki Phase 1",
         lat=6.4363,
         lng=3.4655,
-        safety_tier="yellow",
-        safety_score=Decimal("5.8"),
+        safety_tier="unverified",
+        safety_score=None,
         cost_estimate_text="₦2,000 to ₦10,000 depending on the day and seating",
         best_time="Weekday afternoons for fewer crowds",
         amenities={"parking": True, "restrooms": True, "food": True, "guided_tours": False},
@@ -117,8 +120,8 @@ SPOTS: list[SeedSpot] = [
         address="Abuja-Kaduna Expressway, Madalla",
         lat=9.1311,
         lng=7.2331,
-        safety_tier="yellow",
-        safety_score=Decimal("6.4"),
+        safety_tier="unverified",
+        safety_score=None,
         cost_estimate_text="Free to view; ₦1,000 to ₦3,000 for parking and local guides",
         best_time="Early morning, dry season",
         amenities={"parking": True, "restrooms": False, "food": False, "guided_tours": False},
@@ -133,8 +136,8 @@ SPOTS: list[SeedSpot] = [
         address="Obudu Plateau, Cross River",
         lat=6.3667,
         lng=9.3667,
-        safety_tier="green",
-        safety_score=Decimal("8.8"),
+        safety_tier="unverified",
+        safety_score=None,
         cost_estimate_text="₦15,000 to ₦60,000 per night; day visits cost less",
         best_time="November to February",
         amenities={"parking": True, "restrooms": True, "food": True, "guided_tours": True},
@@ -165,8 +168,8 @@ SPOTS: list[SeedSpot] = [
         address="Creek Road waterfront, Okrika",
         lat=4.7400,
         lng=7.0800,
-        safety_tier="red",
-        safety_score=Decimal("2.9"),
+        safety_tier="unverified",
+        safety_score=None,
         cost_estimate_text="₦3,000 to ₦8,000 for food and drinks",
         best_time="Late afternoon, before dark",
         amenities={"parking": False, "restrooms": False, "food": True, "guided_tours": False},
@@ -181,8 +184,8 @@ SPOTS: list[SeedSpot] = [
         address="Bodija Market, Ibadan",
         lat=7.4395,
         lng=3.9168,
-        safety_tier="green",
-        safety_score=Decimal("7.6"),
+        safety_tier="unverified",
+        safety_score=None,
         cost_estimate_text="₦1,500 to ₦4,000 per plate",
         best_time="Lunchtime, weekdays",
         amenities={"parking": False, "restrooms": False, "food": True, "guided_tours": False},

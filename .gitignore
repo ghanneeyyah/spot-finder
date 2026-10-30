@@ -25,3 +25,6 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# local demo server
+.demo_tokens/

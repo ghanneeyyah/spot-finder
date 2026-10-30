@@ -4,6 +4,7 @@ Revision ID: 0001
 Revises:
 Create Date: 2026-10-26
 """
+
 from collections.abc import Sequence
 
 from alembic import op
@@ -80,9 +81,7 @@ def upgrade() -> None:
         )
         """
     )
-    op.execute(
-        "CREATE INDEX idx_safety_reports_spot ON safety_reports(spot_id, created_at DESC)"
-    )
+    op.execute("CREATE INDEX idx_safety_reports_spot ON safety_reports(spot_id, created_at DESC)")
 
     op.execute(
         """
@@ -96,9 +95,7 @@ def upgrade() -> None:
         )
         """
     )
-    op.execute(
-        "CREATE INDEX idx_spot_photos_spot ON spot_photos(spot_id) WHERE is_approved = TRUE"
-    )
+    op.execute("CREATE INDEX idx_spot_photos_spot ON spot_photos(spot_id) WHERE is_approved = TRUE")
 
     op.execute(
         """

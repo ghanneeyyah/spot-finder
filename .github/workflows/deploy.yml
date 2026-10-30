@@ -1,0 +1,66 @@
+name: Deploy API
+
+# Runs after CI succeeds on main, or by hand. Running it by hand with an older commit SHA in
+# `ref` is the rollback path: it redeploys that known-good commit.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit SHA to deploy (leave empty for the latest main)
+        required: false
+
+permissions:
+  contents: read
+
+# Never run two deploys at once, and never cancel one halfway through.
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    # Off until you flip the DEPLOY_ENABLED repository variable to "true".
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Add required reviewers on this environment for a manual approval gate.
+    environment: production
+    env:
+      # A project token scoped to the production environment only, not an account token.
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      API_URL: ${{ vars.API_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli@4
+
+      # Migrations run inside Railway as the pre-deploy command (see apps/api/railway.json), and
+      # the new version only receives traffic once /api/health passes. A failed migration or a
+      # failed health check leaves the previous version serving.
+      - name: Deploy
+        working-directory: apps/api
+        run: railway up --ci --service "${{ vars.RAILWAY_SERVICE }}"
+
+      - name: Smoke test
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-delay 10 --retry-all-errors \
+            "$API_URL/api/health" | tee /dev/stderr | grep -q '"status":"ok"'
+          # Auth is enforced on writes.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API_URL/api/spots" \
+            -H 'Content-Type: application/json' -d '{}')" = "401"
+          # API docs are hidden in production.
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$API_URL/api/openapi.json")" = "404"
