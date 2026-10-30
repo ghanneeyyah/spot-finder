@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* Adire indigo ink on a cool white page. The four tier colors are the only other hues, so they
+   always mean something. System fonts only: nothing to download on a slow connection. */
+@theme {
+  --color-ink: #1d2457;
+  --color-paper: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-line: #d8dcea;
+  --color-muted: #4b5275;
+  --color-tier-green: #15803d;
+  --color-tier-amber: #b45309;
+  --color-tier-red: #b91c1c;
+  --color-tier-none: #64748b;
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans",
+    sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Noto Serif", Georgia, serif;
+}
+
+:root {
+  --header-h: 3.5rem;
+  color-scheme: light;
+}
+
+html {
+  background: var(--color-paper);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

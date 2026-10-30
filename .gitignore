@@ -28,3 +28,6 @@ __pycache__/
 
 # local demo server
 .demo_tokens/
+
+*.tsbuildinfo
+next-env.d.ts

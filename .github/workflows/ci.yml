@@ -81,6 +81,9 @@ jobs:
           echo "$output"
           echo "$output" | grep -q "0 inserted, 8 already present"
 
+      - name: OpenAPI export is current
+        run: python scripts/export_openapi.py --check
+
       - name: Tests
         run: pytest -q
 
@@ -100,10 +103,9 @@ jobs:
         id: detect
         run: echo "present=$([ -f apps/web/next.config.ts ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+      # The pnpm version comes from the "packageManager" field in package.json.
       - uses: pnpm/action-setup@v4
         if: steps.detect.outputs.present == 'true'
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         if: steps.detect.outputs.present == 'true'
@@ -115,12 +117,38 @@ jobs:
         if: steps.detect.outputs.present == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Type-check, lint, build
+      # Types are generated from the API's OpenAPI schema. If the schema changed and the types were
+      # not regenerated, the diff fails here instead of in production.
+      - name: API types are current
         if: steps.detect.outputs.present == 'true'
         run: |
-          pnpm -r --if-present run typecheck
-          pnpm -r --if-present run lint
-          pnpm -r --if-present run build
+          pnpm generate
+          git diff --exit-code packages/shared-types/src/api.d.ts
+
+      - name: Type-check
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm typecheck
+
+      - name: Lint
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm lint
+
+      - name: Test
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm test
+
+      - name: Build
+        if: steps.detect.outputs.present == 'true'
+        run: pnpm build
+        env:
+          # Placeholders: the build needs the variables to exist, not to work.
+          NEXT_PUBLIC_API_URL: https://api.example.com
+          NEXT_PUBLIC_SITE_URL: https://example.com
+          NEXT_PUBLIC_MAPBOX_TOKEN: pk.ci-placeholder
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_APP_ID: ci-placeholder
 
   secrets:
     name: Secret scan

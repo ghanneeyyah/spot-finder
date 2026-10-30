@@ -1,0 +1,42 @@
+name: Lighthouse
+
+# Measures the deployed site on a throttled mobile profile, three runs per page, and fails if the
+# median score drops below the budget in .github/lighthouse/lighthouserc.json. It runs weekly and
+# on demand rather than on every pull request: scores on shared CI machines vary too much to
+# gate merges on them.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Site URL, without a trailing slash (defaults to the SITE_URL variable)
+        required: false
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    name: Lighthouse (mobile, median of 3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SITE_URL: ${{ inputs.url || vars.SITE_URL }}
+      # Path of one real spot page, for example /spots/olumo-rock (repository variable).
+      SPOT_PATH: ${{ vars.LIGHTHOUSE_SPOT_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require a site URL
+        run: test -n "$SITE_URL" || { echo "Set the SITE_URL variable or pass a url."; exit 1; }
+
+      - uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            ${{ env.SITE_URL }}/
+            ${{ env.SITE_URL }}/spots
+            ${{ env.SITE_URL }}${{ env.SPOT_PATH }}
+          runs: 3
+          configPath: .github/lighthouse/lighthouserc.json
+          uploadArtifacts: true

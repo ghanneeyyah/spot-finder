@@ -13,6 +13,7 @@ class SafetyReport(Base):
     __table_args__ = (
         CheckConstraint("reported_tier IN ('green','yellow','red')"),
         Index("idx_safety_reports_spot", "spot_id", text("created_at DESC")),
+        Index("idx_safety_reports_user_spot", "spot_id", "user_id", unique=True),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

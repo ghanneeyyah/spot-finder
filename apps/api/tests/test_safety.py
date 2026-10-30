@@ -1,5 +1,11 @@
+import asyncio
+from collections.abc import Callable
+
 import httpx
+import pytest
+from app.models import SafetyReport, User
 from app.services.safety_service import decide_tier
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.conftest import add_spot, auth
@@ -88,3 +94,34 @@ async def test_list_reports_is_public_paginated_and_anonymous(
     assert (await client.get("/api/safety-reports/not-a-uuid")).status_code == 422
     missing = await client.get("/api/safety-reports/00000000-0000-0000-0000-000000000000")
     assert missing.status_code == 404
+
+
+async def test_simultaneous_duplicate_reports_cannot_both_succeed(
+    make_client: Callable[..., httpx.AsyncClient], db: AsyncSession
+) -> None:
+    spot = await add_spot(db)
+    payload = {"spot_id": str(spot.id), "reported_tier": "green"}
+
+    async def submit() -> int:
+        async with make_client() as c:
+            return (
+                await c.post("/api/safety-reports", json=payload, headers=auth("tok-alice"))
+            ).status_code
+
+    # Warm up the account so both requests race on the report insert, not on user creation.
+    async with make_client() as c:
+        await c.get("/api/admin/moderation-queue", headers=auth("tok-alice"))
+    codes = sorted(await asyncio.gather(*(submit() for _ in range(6))))
+    assert codes.count(201) == 1 and codes.count(409) == 5
+
+
+async def test_database_rejects_duplicate_reports_directly(db: AsyncSession) -> None:
+    spot = await add_spot(db)
+    user = User(firebase_uid="dup-user")
+    db.add(user)
+    await db.flush()
+    db.add(SafetyReport(spot_id=spot.id, user_id=user.id, reported_tier="green"))
+    await db.commit()
+    db.add(SafetyReport(spot_id=spot.id, user_id=user.id, reported_tier="red"))
+    with pytest.raises(IntegrityError):
+        await db.commit()

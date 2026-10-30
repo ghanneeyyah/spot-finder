@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.middleware.error_handler import AppError
@@ -45,7 +46,12 @@ async def create_report(db: AsyncSession, user: User, data: SafetyReportCreate) 
         comment=data.comment,
     )
     db.add(report)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        # Two simultaneous submissions both passed the check above; the unique index stopped one.
+        await db.rollback()
+        raise AppError(409, "already_reported", "You have already reported this spot.") from exc
 
     rows = (
         await db.execute(

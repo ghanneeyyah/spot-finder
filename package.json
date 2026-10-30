@@ -1,5 +1,13 @@
 {
   "name": "spotfinder",
   "private": true,
-  "workspaces": ["apps/web", "packages/*"]
+  "packageManager": "pnpm@12.16.1",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "generate": "pnpm --filter @spotfinder/shared-types generate",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "lint": "pnpm -r --if-present run lint",
+    "test": "pnpm -r --if-present run test",
+    "build": "pnpm -r --if-present run build"
+  }
 }
