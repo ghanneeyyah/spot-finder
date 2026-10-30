@@ -26,7 +26,7 @@ jobs:
       # Path of one real spot page, for example /spots/olumo-rock (repository variable).
       SPOT_PATH: ${{ vars.LIGHTHOUSE_SPOT_PATH }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Require a site URL
         run: test -n "$SITE_URL" || { echo "Set the SITE_URL variable or pass a url."; exit 1; }
