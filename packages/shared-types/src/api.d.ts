@@ -55,6 +55,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/photos/{photo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Moderate Photo
+         * @description Approve or reject an uploaded photo. Moderators and admins.
+         */
+        patch: operations["moderate_photo_api_photos__photo_id__patch"];
+        trace?: never;
+    };
     "/api/safety-reports": {
         parameters: {
             query?: never;
@@ -141,6 +161,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/spots/{spot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Spot
+         * @description Take a live spot off the public site. Soft delete only: nothing is erased.
+         */
+        delete: operations["remove_spot_api_spots__spot_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Moderate Spot
+         * @description Approve or reject a spot. Moderators and admins; a moderator may act on their own
+         *     submission.
+         */
+        patch: operations["moderate_spot_api_spots__spot_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -183,6 +228,20 @@ export interface components {
              */
             status: "ok";
         };
+        /**
+         * ModerationDecision
+         * @description A moderator's decision. Deliberately not free-form field edits: a decision can only move an
+         *     item between the states that exist, so it can never produce an inconsistent row.
+         */
+        ModerationDecision: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "reject";
+            /** Reason */
+            reason?: string | null;
+        };
         /** ModerationItem */
         ModerationItem: {
             /**
@@ -202,6 +261,7 @@ export interface components {
             kind: "spot" | "photo";
             /** Photo Url */
             photo_url: string | null;
+            spot: components["schemas"]["SubmittedSpot"] | null;
             /**
              * Spot Id
              * Format: uuid
@@ -209,6 +269,10 @@ export interface components {
             spot_id: string;
             /** Spot Name */
             spot_name: string;
+            /** Spot Slug */
+            spot_slug: string;
+            /** Submitter */
+            submitter: string | null;
         };
         /** Page[ModerationItem] */
         Page_ModerationItem_: {
@@ -253,6 +317,24 @@ export interface components {
             offset: number;
             /** Total */
             total: number;
+        };
+        /** PhotoModerated */
+        PhotoModerated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Spot Id
+             * Format: uuid
+             */
+            spot_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "approved" | "rejected";
         };
         /** PhotoOut */
         PhotoOut: {
@@ -416,6 +498,21 @@ export interface components {
              */
             updated_at: string;
         };
+        /** SpotModerated */
+        SpotModerated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "approved" | "rejected" | "deleted";
+        };
         /** SpotNearby */
         SpotNearby: {
             /**
@@ -497,6 +594,34 @@ export interface components {
             safety_report_count: number;
             /** Slug */
             slug: string;
+            /** State */
+            state: string;
+        };
+        /**
+         * SubmittedSpot
+         * @description What a moderator needs to judge a submission.
+         */
+        SubmittedSpot: {
+            /** Address */
+            address: string | null;
+            /** Amenities */
+            amenities: {
+                [key: string]: unknown;
+            };
+            /** Best Time */
+            best_time: string | null;
+            /** Category */
+            category: string;
+            /** City */
+            city: string;
+            /** Cost Estimate Text */
+            cost_estimate_text: string | null;
+            /** Description */
+            description: string | null;
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
             /** State */
             state: string;
         };
@@ -664,6 +789,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PhotoSubmitted"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    moderate_photo_api_photos__photo_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModerationDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoModerated"];
                 };
             };
             /** @description Unauthorized */
@@ -1092,6 +1288,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpotDetail"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    remove_spot_api_spots__spot_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                spot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotModerated"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    moderate_spot_api_spots__spot_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                spot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModerationDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotModerated"];
                 };
             };
             /** @description Unauthorized */

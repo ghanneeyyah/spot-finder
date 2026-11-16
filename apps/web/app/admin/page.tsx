@@ -1,5 +1,5 @@
-import { ModerationQueue } from "@/components/admin/ModerationQueue";
+import { redirect } from "next/navigation";
 
-export default function AdminPage() {
-  return <ModerationQueue />;
+export default function AdminPage(): never {
+  redirect("/admin/moderation");
 }

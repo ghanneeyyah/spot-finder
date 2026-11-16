@@ -52,3 +52,12 @@ import { NIGERIAN_STATES } from "@spotfinder/shared-types";
 export const STATE_OPTIONS = NIGERIAN_STATES.map((value) => ({ value, label: value }));
 export const CATEGORY_OPTIONS = CATEGORIES.map((value) => ({ value, label: CATEGORY_LABELS[value] }));
 export const TIER_OPTIONS = TIERS.map((value) => ({ value, label: TIER_FILTER_LABELS[value] }));
+
+/** "28 Oct 2026, 11:00", always in Lagos time so every moderator sees the same clock. */
+export function formatSubmitted(iso: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Africa/Lagos",
+  }).format(new Date(iso));
+}

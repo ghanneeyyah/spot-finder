@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ModerationItemCard, type Decision } from "@/components/admin/ModerationItemCard";
 import { buttonClass, secondaryButtonClass } from "@/components/ui/Field";
 import { api, type ModerationItem } from "@/lib/api";
 import { getIdToken, onAuthChange, signInWithGoogle, signOutUser, type SignedInUser } from "@/lib/auth";
@@ -19,7 +20,8 @@ type View =
 
 /**
  * The page never decides who is a moderator. It asks the API, which checks the Firebase token and
- * the role stored in the database: a 403 from the API is what produces the "no access" view.
+ * the role stored in the database: a 403 from the API is what produces the "no access" view, and
+ * a 403 on any decision sends the page back through the same check.
  */
 export function ModerationQueue() {
   const [user, setUser] = useState<SignedInUser | null | undefined>(undefined);
@@ -28,6 +30,15 @@ export function ModerationQueue() {
   const [offset, setOffset] = useState(0);
   const [attempt, setAttempt] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<{ key: string; ids: string[] }>({ key: "", ids: [] });
+  const [announcement, setAnnouncement] = useState("");
+  const statusRef = useRef<HTMLParagraphElement>(null);
+
+  // Keyboard users lose their place when the card they were on disappears, so focus moves to the
+  // status message, which also announces the outcome to screen readers.
+  useEffect(() => {
+    if (announcement) statusRef.current?.focus();
+  }, [announcement]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -77,14 +88,53 @@ export function ModerationQueue() {
     };
   }, [requestKey, offset]);
 
-  let view: View;
-  if (unconfigured) view = { name: "unconfigured" };
-  else if (user === undefined) view = { name: "loading" };
-  else if (user === null) view = { name: "signed-out" };
-  else if (fetched === null || fetched.key !== requestKey) view = { name: "loading" };
-  else if (fetched.name === "queue") view = { name: "queue", items: fetched.items, total: fetched.total };
-  else if (fetched.name === "forbidden") view = { name: "forbidden", email: user.email };
-  else view = { name: fetched.name };
+  const decide = useCallback(
+    async (item: ModerationItem, decision: Decision): Promise<string | null> => {
+      const label = item.kind === "spot" ? item.spot_name : `the photo on ${item.spot_name}`;
+      try {
+        const token = await getIdToken();
+        if (!token) {
+          setAttempt((n) => n + 1);
+          return "You were signed out. Sign in again.";
+        }
+        const headers = { Authorization: `Bearer ${token}` };
+        const body = decision.decision === "reject" ? decision : { decision: "approve" as const };
+        const { response } =
+          item.kind === "spot"
+            ? await api.PATCH("/api/spots/{spot_id}", {
+                params: { path: { spot_id: item.id } },
+                body,
+                headers,
+              })
+            : await api.PATCH("/api/photos/{photo_id}", {
+                params: { path: { photo_id: item.id } },
+                body,
+                headers,
+              });
+
+        if (response.status === 401 || response.status === 403) {
+          setAttempt((n) => n + 1); // the queue shows the right "signed out" or "no access" state
+          return "Your access has changed.";
+        }
+        if (response.ok || response.status === 409) {
+          setRemoved((current) => ({
+            key: requestKey ?? "",
+            ids: [...(current.key === requestKey ? current.ids : []), `${item.kind}-${item.id}`],
+          }));
+          setAnnouncement(
+            response.ok
+              ? `${decision.decision === "approve" ? "Approved" : "Rejected"} ${label}.`
+              : `Someone else already decided on ${label}.`,
+          );
+          return null;
+        }
+        return "That could not be saved. Try again.";
+      } catch {
+        return "That could not be saved. Check your connection and try again.";
+      }
+    },
+    [requestKey],
+  );
 
   const run = async (action: () => Promise<void>) => {
     setActionError(null);
@@ -94,6 +144,17 @@ export function ModerationQueue() {
       setActionError("That did not work. Try again.");
     }
   };
+
+  const hidden = new Set(removed.key === requestKey ? removed.ids : []);
+
+  let view: View;
+  if (unconfigured) view = { name: "unconfigured" };
+  else if (user === undefined) view = { name: "loading" };
+  else if (user === null) view = { name: "signed-out" };
+  else if (fetched === null || fetched.key !== requestKey) view = { name: "loading" };
+  else if (fetched.name === "queue") view = { name: "queue", items: fetched.items, total: fetched.total };
+  else if (fetched.name === "forbidden") view = { name: "forbidden", email: user.email };
+  else view = { name: fetched.name };
 
   return (
     <div className="flex flex-col gap-6">
@@ -139,52 +200,90 @@ export function ModerationQueue() {
       )}
 
       {view.name === "queue" && (
-        <>
-          {view.items.length === 0 ? (
-            <p>Nothing is waiting for review.</p>
-          ) : (
-            <>
-              <p className="text-muted" role="status">
-                {offset + 1} to {offset + view.items.length} of {view.total}
-              </p>
-              <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface">
-                {view.items.map((item) => (
-                  <li key={`${item.kind}-${item.id}`} className="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p className="font-semibold">{item.kind === "spot" ? "New spot" : "New photo"}</p>
-                      <p>{item.spot_name}</p>
-                    </div>
-                    {item.photo_url && (
-                      <a href={item.photo_url} target="_blank" rel="noopener noreferrer" className="underline">
-                        View photo
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <div className="flex gap-6">
-                {offset > 0 && (
-                  <button type="button" className="font-semibold underline" onClick={() => setOffset(Math.max(offset - PAGE_SIZE, 0))}>
-                    Previous
-                  </button>
-                )}
-                {offset + view.items.length < view.total && (
-                  <button type="button" className="font-semibold underline" onClick={() => setOffset(offset + PAGE_SIZE)}>
-                    Next
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-          <div>
-            <button type="button" className={secondaryButtonClass} onClick={() => run(signOutUser)}>
-              Sign out
-            </button>
-          </div>
-        </>
+        <QueueView
+          items={view.items.filter((item) => !hidden.has(`${item.kind}-${item.id}`))}
+          total={view.total - hidden.size}
+          offset={offset}
+          onDecide={decide}
+          onPage={setOffset}
+          onRefill={() => setAttempt((n) => n + 1)}
+        />
+      )}
+
+      {announcement && (
+        <p ref={statusRef} tabIndex={-1} role="status" className="font-semibold outline-none">
+          {announcement}
+        </p>
+      )}
+
+      {view.name === "queue" && (
+        <div>
+          <button type="button" className={secondaryButtonClass} onClick={() => run(signOutUser)}>
+            Sign out
+          </button>
+        </div>
       )}
 
       {actionError && <p role="alert">{actionError}</p>}
     </div>
+  );
+}
+
+function QueueView({
+  items,
+  total,
+  offset,
+  onDecide,
+  onPage,
+  onRefill,
+}: {
+  items: ModerationItem[];
+  /** Pending items across all pages, with this session's decisions already subtracted. */
+  total: number;
+  offset: number;
+  onDecide: (item: ModerationItem, decision: Decision) => Promise<string | null>;
+  onPage: (offset: number) => void;
+  onRefill: () => void;
+}) {
+  if (items.length === 0) {
+    if (total <= 0) return <p>Nothing is waiting for review.</p>;
+    // Everything on this page was decided but more is waiting elsewhere.
+    return (
+      <button type="button" className={buttonClass} onClick={() => (offset > 0 ? onPage(0) : onRefill())}>
+        {offset > 0 ? "Back to the start of the queue" : "Load the next items"}
+      </button>
+    );
+  }
+  return (
+    <>
+      <p className="text-muted">
+        {offset + 1} to {offset + items.length} of {total}
+      </p>
+      <ul className="flex flex-col gap-4">
+        {items.map((item) => (
+          <li key={`${item.kind}-${item.id}`}>
+            <ModerationItemCard item={item} onDecide={onDecide} />
+          </li>
+        ))}
+      </ul>
+      <div className="flex gap-6">
+        {offset > 0 && (
+          <button
+            type="button"
+            className="font-semibold underline"
+            onClick={() => onPage(Math.max(offset - PAGE_SIZE, 0))}
+          >
+            Previous
+          </button>
+        )}
+        {/* Decided items have left the server's list, so the next page starts right after the
+            items still shown here, not a full page further on. */}
+        {offset + items.length < total && (
+          <button type="button" className="font-semibold underline" onClick={() => onPage(offset + items.length)}>
+            Next
+          </button>
+        )}
+      </div>
+    </>
   );
 }

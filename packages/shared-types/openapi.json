@@ -86,6 +86,37 @@
         "title": "Health",
         "type": "object"
       },
+      "ModerationDecision": {
+        "additionalProperties": false,
+        "description": "A moderator's decision. Deliberately not free-form field edits: a decision can only move an\nitem between the states that exist, so it can never produce an inconsistent row.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ModerationDecision",
+        "type": "object"
+      },
       "ModerationItem": {
         "properties": {
           "created_at": {
@@ -117,6 +148,16 @@
             ],
             "title": "Photo Url"
           },
+          "spot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubmittedSpot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "spot_id": {
             "format": "uuid",
             "title": "Spot Id",
@@ -125,6 +166,21 @@
           "spot_name": {
             "title": "Spot Name",
             "type": "string"
+          },
+          "spot_slug": {
+            "title": "Spot Slug",
+            "type": "string"
+          },
+          "submitter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitter"
           }
         },
         "required": [
@@ -132,7 +188,10 @@
           "id",
           "spot_id",
           "spot_name",
+          "spot_slug",
+          "submitter",
           "photo_url",
+          "spot",
           "created_at"
         ],
         "title": "ModerationItem",
@@ -260,6 +319,35 @@
           "offset"
         ],
         "title": "Page[SpotSummary]",
+        "type": "object"
+      },
+      "PhotoModerated": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "spot_id": {
+            "format": "uuid",
+            "title": "Spot Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "spot_id",
+          "status"
+        ],
+        "title": "PhotoModerated",
         "type": "object"
       },
       "PhotoOut": {
@@ -675,6 +763,35 @@
         "title": "SpotDetail",
         "type": "object"
       },
+      "SpotModerated": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "rejected",
+              "deleted"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "status"
+        ],
+        "title": "SpotModerated",
+        "type": "object"
+      },
       "SpotNearby": {
         "properties": {
           "category": {
@@ -856,6 +973,94 @@
           "safety_report_count"
         ],
         "title": "SpotSummary",
+        "type": "object"
+      },
+      "SubmittedSpot": {
+        "description": "What a moderator needs to judge a submission.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "amenities": {
+            "additionalProperties": true,
+            "title": "Amenities",
+            "type": "object"
+          },
+          "best_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Time"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "cost_estimate_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Estimate Text"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "state",
+          "city",
+          "address",
+          "description",
+          "cost_estimate_text",
+          "best_time",
+          "amenities",
+          "latitude",
+          "longitude"
+        ],
+        "title": "SubmittedSpot",
         "type": "object"
       }
     },
@@ -1131,6 +1336,105 @@
           }
         ],
         "summary": "Upload Photo",
+        "tags": [
+          "photos"
+        ]
+      }
+    },
+    "/api/photos/{photo_id}": {
+      "patch": {
+        "description": "Approve or reject an uploaded photo. Moderators and admins.",
+        "operationId": "moderate_photo_api_photos__photo_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "photo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Photo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoModerated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Moderate Photo",
         "tags": [
           "photos"
         ]
@@ -1854,6 +2158,192 @@
           }
         },
         "summary": "Get Spot",
+        "tags": [
+          "spots"
+        ]
+      }
+    },
+    "/api/spots/{spot_id}": {
+      "delete": {
+        "description": "Take a live spot off the public site. Soft delete only: nothing is erased.",
+        "operationId": "remove_spot_api_spots__spot_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spot_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Spot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotModerated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Remove Spot",
+        "tags": [
+          "spots"
+        ]
+      },
+      "patch": {
+        "description": "Approve or reject a spot. Moderators and admins; a moderator may act on their own\nsubmission.",
+        "operationId": "moderate_spot_api_spots__spot_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "spot_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Spot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModerationDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotModerated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Moderate Spot",
         "tags": [
           "spots"
         ]
