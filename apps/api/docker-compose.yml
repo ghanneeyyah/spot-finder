@@ -1,0 +1,23 @@
+
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    container_name: spotfinder-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: spotfinder_user
+      POSTGRES_PASSWORD: spotfinder_dev_password
+      POSTGRES_DB: spotfinder
+    ports:
+      - "5433:5432"
+    volumes:
+      - spotfinder_postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spotfinder_user -d spotfinder"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  spotfinder_postgres_data:

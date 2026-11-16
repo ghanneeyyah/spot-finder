@@ -30,11 +30,20 @@ class Spot(Base):
         ),
         CheckConstraint("safety_tier IN ('green','yellow','red','unverified')"),
         CheckConstraint("safety_score >= 0 AND safety_score <= 10"),
+        CheckConstraint("char_length(rejection_reason) <= 500"),
         Index("idx_spots_location", "location", postgresql_using="gist"),
         Index("idx_spots_safety_tier", "safety_tier"),
         Index("idx_spots_state_city", "state", "city"),
         Index("idx_spots_category", "category"),
         Index("idx_spots_active", "is_active", postgresql_where=text("is_active = TRUE")),
+        Index(
+            "idx_spots_pending",
+            "created_at",
+            "id",
+            postgresql_where=text(
+                "is_active = FALSE AND is_verified = FALSE AND rejection_reason IS NULL"
+            ),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -63,6 +72,8 @@ class Spot(Base):
     )
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("FALSE"))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("TRUE"))
+    # Set when a moderator rejects a submission. A rejected spot stays hidden and out of the queue.
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

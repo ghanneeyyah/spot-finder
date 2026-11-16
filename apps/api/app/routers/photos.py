@@ -3,11 +3,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
-from app.dependencies import AppSettings, CurrentUser, DbSession, user_rate_limit
+from app.dependencies import (
+    AppSettings,
+    CurrentUser,
+    DbSession,
+    Moderator,
+    moderation_rate_limit,
+    user_rate_limit,
+)
 from app.middleware.error_handler import AppError
 from app.middleware.rate_limit import Rule
+from app.schemas.moderation import ModerationDecision, PhotoModerated
 from app.schemas.photo import PhotoSubmitted
-from app.services import photo_service
+from app.services import moderation_service, photo_service
 from app.services.cloudinary_service import UploadFailed, UploadUnavailable
 
 router = APIRouter(prefix="/api/photos", tags=["photos"])
@@ -46,3 +54,13 @@ async def upload_photo(
     except UploadFailed as exc:
         raise AppError(502, "upload_failed", "The photo could not be uploaded. Try again.") from exc
     return await photo_service.record_photo(db, user, spot_id, public_id)
+
+
+@router.patch(
+    "/{photo_id}", response_model=PhotoModerated, dependencies=[Depends(moderation_rate_limit)]
+)
+async def moderate_photo(
+    db: DbSession, moderator: Moderator, photo_id: uuid.UUID, body: ModerationDecision
+) -> PhotoModerated:
+    """Approve or reject an uploaded photo. Moderators and admins."""
+    return await moderation_service.decide_photo(db, moderator, photo_id, body)

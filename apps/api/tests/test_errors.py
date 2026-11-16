@@ -11,9 +11,12 @@ EXPECTED_ENDPOINTS = {
     ("GET", "/api/spots/{slug}"),
     ("GET", "/api/spots/nearby"),
     ("POST", "/api/spots"),
+    ("PATCH", "/api/spots/{spot_id}"),
+    ("DELETE", "/api/spots/{spot_id}"),
     ("POST", "/api/safety-reports"),
     ("GET", "/api/safety-reports/{spot_id}"),
     ("POST", "/api/photos"),
+    ("PATCH", "/api/photos/{photo_id}"),
     ("GET", "/api/admin/moderation-queue"),
 }
 

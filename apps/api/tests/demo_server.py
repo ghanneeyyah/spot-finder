@@ -25,6 +25,7 @@ tokens = {
     "alice": mint_token(material, project_id=PROJECT, uid="demo-alice", email="alice@example.com"),
     "bob": mint_token(material, project_id=PROJECT, uid="demo-bob"),
     "mod": mint_token(material, project_id=PROJECT, uid="demo-mod"),
+    "admin": mint_token(material, project_id=PROJECT, uid="demo-admin"),
     "expired": mint_token(material, project_id=PROJECT, uid="demo-alice", expires_in=-3600),
     "wrong_audience": mint_token(material, project_id=PROJECT, audience="another-project"),
 }

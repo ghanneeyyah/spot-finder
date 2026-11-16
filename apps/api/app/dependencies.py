@@ -89,6 +89,10 @@ def require_role(minimum: str) -> Callable[[User], Awaitable[User]]:
     return dependency
 
 
+Moderator = Annotated[User, Depends(require_role("moderator"))]
+Admin = Annotated[User, Depends(require_role("admin"))]
+
+
 def user_rate_limit(name: str, rule: Rule) -> Callable[[Request, User], Awaitable[None]]:
     """Per-account write limit, applied after authentication. Complements the per-IP middleware
     limit, which has to stay generous because many mobile users share one carrier IP."""
@@ -105,3 +109,8 @@ def user_rate_limit(name: str, rule: Rule) -> Callable[[Request, User], Awaitabl
             )
 
     return dependency
+
+
+# One generous per-account budget shared by every moderation action. Moderators clear queues in
+# bursts, so it is far higher than the limits on public submissions.
+moderation_rate_limit = user_rate_limit("moderation", Rule(limit=300, window_seconds=3600))

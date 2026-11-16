@@ -24,8 +24,8 @@ from app.utils.geo import BBox, geog_bbox, geog_point
 from app.utils.pagination import PageParams
 from app.utils.slug import slugify
 
-_LAT = func.ST_Y(sql_cast(Spot.location, Geometry)).label("latitude")
-_LNG = func.ST_X(sql_cast(Spot.location, Geometry)).label("longitude")
+LATITUDE = func.ST_Y(sql_cast(Spot.location, Geometry)).label("latitude")
+LONGITUDE = func.ST_X(sql_cast(Spot.location, Geometry)).label("longitude")
 # One correlated subquery per row, so listing never issues a query per spot (no N+1).
 _REPORT_COUNT = (
     select(func.count(SafetyReport.id))
@@ -42,8 +42,8 @@ _SUMMARY_COLUMNS = (
     Spot.state,
     Spot.city,
     Spot.safety_tier,
-    _LAT,
-    _LNG,
+    LATITUDE,
+    LONGITUDE,
     _REPORT_COUNT,
 )
 MAX_PHOTOS_ON_DETAIL = 10

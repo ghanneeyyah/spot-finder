@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Text, func, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,7 +11,14 @@ from app.database import Base
 class SpotPhoto(Base):
     __tablename__ = "spot_photos"
     __table_args__ = (
+        CheckConstraint("char_length(rejection_reason) <= 500"),
         Index("idx_spot_photos_spot", "spot_id", postgresql_where=text("is_approved = TRUE")),
+        Index(
+            "idx_spot_photos_pending",
+            "created_at",
+            "id",
+            postgresql_where=text("is_approved = FALSE AND rejection_reason IS NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -23,6 +30,7 @@ class SpotPhoto(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     cloudinary_public_id: Mapped[str] = mapped_column(Text, nullable=False)
     is_approved: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("FALSE"))
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
