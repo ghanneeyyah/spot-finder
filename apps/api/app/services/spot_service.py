@@ -18,6 +18,7 @@ from app.schemas.spot import (
     SpotNearby,
     SpotSubmitted,
     SpotSummary,
+    SpotResponse,
 )
 from app.services.cloudinary_service import delivery_url
 from app.utils.geo import BBox, geog_bbox, geog_point
@@ -103,7 +104,6 @@ def _summary_fields(row: Row[Any]) -> dict[str, Any]:
         "safety_report_count": row.safety_report_count,
     }
 
-
 async def list_spots(db: AsyncSession, filters: SpotFilters, page: PageParams) -> Page[SpotSummary]:
     conditions = _conditions(filters)
     total = (
@@ -153,6 +153,7 @@ async def get_spot_detail(db: AsyncSession, slug: str, cloud_name: str | None) -
             select(
                 *_SUMMARY_COLUMNS,
                 Spot.safety_score,
+                Spot.booking_info,  # <-- Kept for 0005!
                 Spot.description,
                 Spot.address,
                 Spot.cost_estimate_text,
@@ -164,6 +165,7 @@ async def get_spot_detail(db: AsyncSession, slug: str, cloud_name: str | None) -
             ).where(Spot.slug == slug, Spot.is_active.is_(True))
         )
     ).one_or_none()
+    
     if row is None:
         return None
 
@@ -184,13 +186,13 @@ async def get_spot_detail(db: AsyncSession, slug: str, cloud_name: str | None) -
 
     fields = _summary_fields(row)
     has_reports = row.safety_report_count > 0
+    
     return SpotDetail(
         **fields,
         safety_tier=row.safety_tier,
         # A score with no reports behind it would be an unsupported claim, so it stays hidden.
-        safety_score=float(row.safety_score)
-        if has_reports and row.safety_score is not None
-        else None,
+        safety_score=float(row.safety_score) if has_reports and row.safety_score is not None else None,
+        booking_info=row.booking_info,
         description=row.description,
         address=row.address,
         cost_estimate_text=row.cost_estimate_text,
@@ -201,7 +203,6 @@ async def get_spot_detail(db: AsyncSession, slug: str, cloud_name: str | None) -
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
-
 
 async def create_spot(db: AsyncSession, user: User, data: SpotCreate) -> SpotSubmitted:
     """Creates a spot that stays hidden (inactive and unverified) until a moderator approves it."""
@@ -235,3 +236,39 @@ async def create_spot(db: AsyncSession, user: User, data: SpotCreate) -> SpotSub
         await db.commit()
         return SpotSubmitted(id=spot.id, slug=slug, name=data.name)
     raise AppError(409, "slug_conflict", "Could not allocate a unique address for this spot.")
+
+async def list_user_spots(
+    db: AsyncSession, user: User, page: PageParams
+) -> Page[SpotResponse]:
+    """List all spots submitted by a specific user, including pending and rejected ones."""
+    base_query = select(Spot).where(Spot.created_by == user.id)
+    
+    total = (
+        await db.execute(select(func.count()).select_from(Spot).where(Spot.created_by == user.id))
+    ).scalar_one()
+
+    rows = (
+        await db.execute(
+            base_query
+            .order_by(Spot.created_at.desc(), Spot.id)
+            .limit(page.limit)
+            .offset(page.offset)
+        )
+    ).scalars().all()
+
+    items = [
+        SpotResponse(
+            id=r.id,
+            name=r.name,
+            slug=r.slug,
+            city=r.city,
+            state=r.state,
+            category=r.category,
+            is_active=r.is_active,
+            is_verified=r.is_verified,
+            rejection_reason=r.rejection_reason,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+    return Page(items=items, total=total, limit=page.limit, offset=page.offset)

@@ -13,7 +13,7 @@ function requiredInProduction(name: string, value: string | undefined): string {
 }
 
 export const API_URL = (
-  requiredInProduction("NEXT_PUBLIC_API_URL", API) || "http://localhost:8000"
+  requiredInProduction("NEXT_PUBLIC_API_URL", API) || "http://localhost:8001"
 ).replace(/\/$/, "");
 
 export const SITE_URL = (

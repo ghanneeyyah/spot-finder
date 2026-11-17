@@ -2,7 +2,7 @@ import httpx
 from app.models import SafetyReport, SpotPhoto, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.conftest import add_spot
+from tests.conftest import add_spot, add_user, auth
 
 
 async def test_list_returns_pagination_envelope(
@@ -149,3 +149,44 @@ async def test_detail_404_and_slug_validation(client: httpx.AsyncClient, db: Asy
     assert missing.status_code == 404
     assert missing.json() == {"error": {"code": "spot_not_found", "message": "Spot not found."}}
     assert (await client.get("/api/spots/Bad_Slug")).status_code == 422
+
+async def test_get_my_spots_returns_only_own_submissions(
+    client: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # 1. Create users with the EXACT uids that FakeVerifier uses
+    alice = await add_user(db, "alice")
+    bob = await add_user(db, "bob")
+    
+    # 2. Create spots and assign ownership manually
+    # Alice's approved spot
+    alice_approved = await add_spot(db, "Alice Approved", is_active=True, is_verified=True)
+    alice_approved.created_by = alice.id
+    
+    # Alice's rejected spot
+    alice_rejected = await add_spot(db, "Alice Rejected", is_active=False, is_verified=False)
+    alice_rejected.created_by = alice.id
+    alice_rejected.rejection_reason = "Not a real place"
+    
+    # Bob's pending spot
+    bob_pending = await add_spot(db, "Bob Pending", is_active=False, is_verified=False)
+    bob_pending.created_by = bob.id
+    
+    await db.commit()
+
+    # 3. Fetch as Alice
+    response = await client.get("/api/spots/mine", headers=auth("tok-alice"))
+    assert response.status_code == 200
+    
+    data = response.json()
+    assert data["total"] == 2
+    
+    names = [spot["name"] for spot in data["items"]]
+    assert "Alice Approved" in names
+    assert "Alice Rejected" in names
+    assert "Bob Pending" not in names
+    
+    # 4. Verify rejection reason is exposed for Alice
+    rejected_spot = next(s for s in data["items"] if s["name"] == "Alice Rejected")
+    assert rejected_spot["rejection_reason"] == "Not a real place"
+    assert rejected_spot["is_active"] is False
+    assert rejected_spot["is_verified"] is False

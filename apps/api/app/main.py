@@ -10,7 +10,7 @@ from app.middleware.body_limit import BodyLimitMiddleware
 from app.middleware.error_handler import register_error_handlers
 from app.middleware.rate_limit import FixedWindowLimiter, RateLimitMiddleware, Rule
 from app.middleware.request_context import RequestContextMiddleware
-from app.routers import admin, health, photos, safety, spots
+from app.routers import admin, health, photos, safety, spots, itinerary
 from app.schemas.common import ErrorResponse
 from app.services.cloudinary_service import CloudinaryUploader, UnconfiguredUploader, Uploader
 from app.services.firebase_auth import FirebaseTokenVerifier, TokenVerifier, UnconfiguredVerifier
@@ -124,4 +124,6 @@ def create_app(
     app.include_router(safety.router)
     app.include_router(photos.router)
     app.include_router(admin.router)
+    app.include_router(itinerary.router)  # <-- NEW
+    
     return app

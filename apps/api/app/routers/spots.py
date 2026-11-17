@@ -1,8 +1,6 @@
 import uuid
 from typing import Annotated
-
 from fastapi import APIRouter, Depends, Path, Query
-
 from app.dependencies import (
     Admin,
     AppSettings,
@@ -21,9 +19,11 @@ from app.schemas.spot import (
     SpotCreate,
     SpotDetail,
     SpotNearby,
+    SpotResponse,
     SpotSubmitted,
     SpotSummary,
     Tier,
+    SpotResponse,
 )
 from app.services import moderation_service, spot_service
 from app.services.spot_service import SpotFilters
@@ -31,10 +31,8 @@ from app.utils.geo import NG_LAT, NG_LNG, parse_bbox
 from app.utils.pagination import Pagination
 
 router = APIRouter(prefix="/api/spots", tags=["spots"])
-
 SPOT_SUBMISSION_LIMIT = Rule(limit=10, window_seconds=3600)
 ShortText = Annotated[str | None, Query(min_length=1, max_length=80)]
-
 
 @router.get("", response_model=Page[SpotSummary])
 async def list_spots(
@@ -67,8 +65,15 @@ async def list_spots(
     )
     return await spot_service.list_spots(db, filters, page)
 
+@router.get("/mine", response_model=Page[SpotResponse])
+async def get_my_spots(
+    db: DbSession,
+    user: CurrentUser,
+    page: Pagination,
+) -> Page[SpotResponse]:
+    """List all spots submitted by the currently authenticated user."""
+    return await spot_service.list_user_spots(db, user, page)
 
-# Declared before /{slug} so "nearby" is never read as a slug.
 @router.get("/nearby", response_model=Page[SpotNearby])
 async def nearby_spots(
     db: DbSession,
@@ -91,7 +96,6 @@ async def get_spot(
         raise AppError(404, "spot_not_found", "Spot not found.")
     return spot
 
-
 @router.post(
     "",
     status_code=201,
@@ -101,17 +105,14 @@ async def get_spot(
 async def submit_spot(db: DbSession, user: CurrentUser, body: SpotCreate) -> SpotSubmitted:
     return await spot_service.create_spot(db, user, body)
 
-
 @router.patch(
     "/{spot_id}", response_model=SpotModerated, dependencies=[Depends(moderation_rate_limit)]
 )
 async def moderate_spot(
     db: DbSession, moderator: Moderator, spot_id: uuid.UUID, body: ModerationDecision
 ) -> SpotModerated:
-    """Approve or reject a spot. Moderators and admins; a moderator may act on their own
-    submission."""
+    """Approve or reject a spot. Moderators and admins; a moderator may act on their own submission."""
     return await moderation_service.decide_spot(db, moderator, spot_id, body)
-
 
 @router.delete(
     "/{spot_id}", response_model=SpotModerated, dependencies=[Depends(moderation_rate_limit)]

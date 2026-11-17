@@ -65,6 +65,11 @@ class Spot(Base):
         Text, nullable=False, server_default=text("'unverified'")
     )
     safety_score: Mapped[Decimal | None] = mapped_column(Numeric(3, 1))
+    
+    # New v1 fields from 0005
+    booking_info: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    safety_report_count: Mapped[int] = mapped_column(server_default=text("0"))
+    
     cost_estimate_text: Mapped[str | None] = mapped_column(Text)
     best_time: Mapped[str | None] = mapped_column(Text)
     amenities: Mapped[dict[str, Any] | None] = mapped_column(

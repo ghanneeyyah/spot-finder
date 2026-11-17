@@ -1,0 +1,443 @@
+# Product Requirements Document (PRD)
+## Spotfinder — Safety-First, Budget-Conscious Discovery Platform for Nigeria
+
+**Version:** 3.0 (merged PRD)
+**Status:** In active development — backend hardening phase, frontend paused for redesign
+**Last updated:** After Deliverable 5.5 (Moderation + Audit Log) and the decision to defer the Hybrid Model
+**Owner:** Solo builder (founder/developer)
+**Working name:** Spotfinder (placeholder — final name pending)
+
+---
+
+## 0. Document History & Merged Decisions
+
+This PRD merges three sources:
+
+1. **PRD v2.0** — the original roadmap-based PRD (13-month plan, Phase 1–4, deliverables 4/5/5.5 status)
+2. **The "Revised Hybrid Model" checklist** — `official_safety_index`, `booking_info`, `saved_spots`/itinerary, dual-layer engine
+3. **Founder decisions (this turn):**
+   - Frontend work is **paused** while the UI is redesigned. Backend continues in parallel.
+   - The **Hybrid Model (official safety index) is deferred to post-launch.** No official data source exists yet. v1 ships with **community-report safety only**, which is the model already approved and built.
+   - A future **official reports / security model** (police liaison, municipal data) is a **Phase 5+** item. It is not v1 scope.
+   - Therefore **Migration 0005 no longer includes `official_safety_index`**. The `saved_spots` and `booking_info` items remain candidates for 0005, with the open decisions below resolved.
+
+**What changed from v2.0:** the hybrid model is explicitly deferred, not deleted. The schema slot and product concept remain documented so the door stays open. v1 behavior is unchanged from the approved community-tier engine.
+
+**What changed from the "Revised Hybrid Model" PRD:** `official_safety_index` is removed from v1 scope. The dual-layer engine, conflict resolution, and official-override logic move to Phase 5+.
+
+---
+
+## 1. Overview
+
+### 1.1 Problem Statement
+Big, popular Nigerian landmarks are difficult and expensive to reach due to security issues and the cost of domestic flights. The average Nigerian earns ₦77k/month, which is not enough for local flights. Meanwhile, many beautiful, inexpensive spots go undiscovered because:
+- There is no trusted source of **safety information** for these spots
+- There is no **cost transparency** (entry, transport, food)
+- Existing tools (Google Maps, TripAdvisor) are built for global markets, not Nigerian realities
+- Information about smaller spots is scattered, outdated, or nonexistent
+
+### 1.2 Solution (v1)
+A safety-first, budget-conscious discovery platform that:
+- Curates smaller, affordable, accessible spots and gives them visibility
+- Uses a **color-coded safety system** (🟢 green / 🟡 yellow / 🔴 red) derived from **community reports only** in v1
+- Provides **cost estimates** (entry, transport, food) for every spot
+- Is built **mobile-first** for Nigerian network and device realities
+- Integrates into **daily life** (commute safety, weekend planning, hangout planning), not just occasional tourism
+- Lets users **save spots and plan visits** (`saved_spots` with `planned_date` and `notes`)
+- Supports **booking handoffs** to external vendors (`booking_url`, `whatsapp_contact`) where a spot is bookable
+
+### 1.3 Positioning Statement
+> "The safety-first, budget-conscious discovery platform for everyday Nigerians."
+
+Not "Google Maps for tourism." Not "TripAdvisor for Nigeria." A **lifestyle guide** for discovering, planning, and safely enjoying experiences within budget.
+
+### 1.4 Target Audience
+| Segment | Priority | Notes |
+|---|---|---|
+| Average Nigerians (indigenes, families, local explorers) | Primary | Core user base |
+| Students and young professionals | Primary | High engagement, budget-conscious, social evangelists |
+| Foreign backpackers | Secondary | Low-budget, safety-conscious |
+| Luxury travelers | Secondary | Later phase |
+
+### 1.5 Success Metrics
+- Beta users who open the app more than twice in 2 weeks: **≥ 40%**
+- Spots documented at launch: **100–200** (≥ 50 fully verified)
+- States covered at launch: **≥ 3** (Lagos, Ogun, Abuja/Rivers)
+- Survey validation: **≥ 30–50 responses** confirming the core blocker
+
+---
+
+## 2. Scope
+
+### 2.1 In Scope (v1)
+- Flutter mobile app (iOS + Android)
+- FastAPI backend with PostgreSQL + PostGIS
+- Firebase Auth (RS256 cert verification, no service-account key; roles from DB)
+- Spot listing, search, filters, map view, nearby
+- **Community-report safety tier** (majority vote, tie → cautious, `unverified` when 0 reports)
+- Photo uploads with content sniffing
+- Moderation queue (API + web UI) — **done in 5.5**
+- Audit log for all moderation actions — **done in 5.5**
+- **`GET /api/spots/mine` + `/my-spots`** (rejection-loop closure) — Deliverable 6.5
+- **`saved_spots`** table + save/favorite (and `planned_date`/`notes` if the itinerary decision below says so)
+- **`booking_info`** JSONB on spots, strict Pydantic schema, external handoff
+- CI/CD pipeline with real PostGIS service container — **done in Deliverable 4/5**
+- Safety Journey Planner v1 (Month 9) — route safety tiers, "avoid after dark"
+- Weekly "things to do" notifications
+- WhatsApp share cards
+- Contributor recognition (badges, leaderboard)
+
+### 2.2 Out of Scope for v1 (deliberately deferred)
+- **Hybrid Model / `official_safety_index`** — deferred to Phase 5+. No official data source; v1 uses community reports only.
+- **Official reports / security model** (police liaison, municipal data, verified audit stream) — Phase 5+, post-first-launch, after user base and police partnerships exist.
+- **Dual-layer safety engine + conflict-resolution logic** — Phase 5+ (depends on the official index).
+- **Turn-by-turn navigation SDK** (Mapbox Navigation / Google Maps SDK) — Phase 4 (Months 11–13), not now.
+- **Full itinerary planner UI** — deferred; `saved_spots` storage may land in 0005, but the scheduler experience is later.
+- Public-facing React/Next.js web app beyond admin — deferred.
+- Admin dashboard beyond moderation queue — deferred.
+- Paid scout network — crowdsourcing + founder legwork carries Phase 1–2.
+- Offline-first access — Phase 5+.
+- Transport partnerships (Bolt/Uber integration) — Phase 5+.
+- Event integrations — Phase 5+.
+- Email/password auth — post-launch (Google-only admin for v1).
+- CSP / security headers — tracked as pre-launch TODO (§7).
+- Cloudinary cleanup job for rejected assets — pre-launch TODO (§7).
+- Monetization implementation — direction chosen Month 11, not live at launch.
+
+### 2.3 Architecture Decisions (locked)
+- **Monorepo** (pnpm) with `apps/api` (FastAPI) and `apps/web` (Next.js admin)
+- **Auth:** RS256 against Google public certs; roles from `users.role` DB column, never token claims
+- **Safety tier (v1):** `display_tier = "unverified"` when report count = 0; majority vote across reports; tie → more cautious tier. **No official override in v1.**
+- **Pagination:** default 20, max 100, offset cap 100,000; response `{items, total, limit, offset}`
+- **Errors:** consistent `{error: {code, message, details?}}`; validation details never include submitted values
+- **Rate limiting:** per-IP on all writes (generous — Nigerian carrier NAT), per-user after auth
+- **CORS:** explicit origin list; `*` rejected at startup; production requires https
+- **ISR:** 5-minute revalidate on spot detail pages (safety-freshness tradeoff)
+- **Map:** static map image first, interactive Mapbox GL on tap; bbox on `moveend` with 250ms debounce
+- **Frontend status:** paused for redesign. Backend proceeds in parallel.
+
+---
+
+## 3. What Has Been Done (Completed)
+
+### 3.1 Deliverable 4 — FastAPI App + CI/CD ✅
+**Status:** Approved. 71 API tests; CI green from clean Python 3.13 venv.
+
+**API routes (9):** `GET /api/health`, `GET /api/spots` (filters state/city/category/safety_tier/bbox/q), `GET /api/spots/nearby`, `GET /api/spots/{slug}`, `POST /api/spots`, `POST /api/safety-reports`, `GET /api/safety-reports/{spot_id}`, `POST /api/photos`, `GET /api/admin/moderation-queue`.
+
+**Auth:** RS256 against Google certs; audience/issuer/subject/auth_time/expiry checks; no service-account key; roles from DB; 401 `not_authenticated`/`invalid_token`, 503 `auth_unavailable`, 403 disabled.
+
+**Safety tier (v1):** `display_tier=unverified` when count=0; majority vote; tie → cautious; seed spots unverified.
+
+**Pagination / errors / rate limits / CORS / seed:** as specified in §2.3.
+
+**Bugs fixed in testing:** strict amenity booleans (`{"parking":"yes"}` was coerced to true); chunked oversized body → 413 not 400; CI seed check now asserts "0 inserted, 8 present" on second run.
+
+**CI:** ruff, mypy, migrate up, `alembic check`, migrate down/up, seed twice, pytest, pip-audit; web job; gitleaks.
+**CD:** gated by `DEPLOY_ENABLED`; Railway pre-deploy migrations; traffic only after `/api/health`; smoke test; rollback via older SHA. Not verified live: Railway, Cloudinary real uploads, Google live certs, actions pinned to major not SHA.
+
+### 3.2 Deliverable 5 — Next.js Admin/Web App ✅
+**Status:** Approved. 36 web tests; Lighthouse 98/99/99.
+
+`next.config.ts`; OpenAPI drift check + type-regeneration drift check; map bbox `moveend` 250ms debounce with in-flight cancel; native Mapbox clustering; popup via DOM text nodes (XSS-safe); static map first → interactive on tap; `/spots/[slug]` ISR 5-min; zero-reports → "No community reports yet"; SEO metadata + per-spot social preview; API-down fallback card; typed client (`export_openapi.py` → `openapi.json` → `openapi-typescript` → `api.d.ts` → `openapi-fetch`); `/admin` never decides role client-side (Firebase token → API → 403 view, `noindex`); 8 mocked cases; `.env.example` fail-fast on missing; weekly Lighthouse workflow.
+
+**Migration 0003:** unique index `(spot_id, user_id)` on `safety_reports`; six concurrent reports → one 201, five 409s.
+
+**Bugs fixed:** OG-data override dropped preview image; failed render invisible without JS; duplicate filter panel IDs; link prefetch on every card; pnpm install-script denials.
+
+### 3.3 Deliverable 5.5 — Moderation Decisions + Audit Log + UI ✅
+**Status:** Approved. 101 API tests (+28), 36 web tests (+9). Both CI jobs green from clean state. Rebuilt after sandbox reset.
+
+**`PATCH /api/spots/{id}`:** moderator/admin; decision only (`approve`/`reject`, reason); approve sets `is_active`/`is_verified` true and clears reason; reject requires non-blank ≤500 chars, pending-only; audit same-transaction (`spot.approve`/`spot.reject`/`spot.reactivate`/`spot.delete`, prev/new state, reason); `set_updated_at` trigger fires; moderator may act on own spot; row locks → 6 simultaneous = 1×200, 5×409, 1 audit row.
+
+**`DELETE /api/spots/{id}`:** admin only (moderators 403); soft delete (`is_active=false`); photos/reports/verification preserved; audit records previous state; approve restores (`spot.reactivate`); second delete → 409; deleting pending → 409.
+
+**Moderation UI:** `/admin/moderation` (`/admin` redirects); item shows submitter, Lagos-time date, details, pin link, photo; reject requires reason (Confirm disabled until typed); item leaves queue after decision + screen-reader announcement; 409 = "someone else already decided"; no-access view tested for non-moderator and revoked mid-session.
+
+**Tests:** approve → public visibility; admin delete → hidden + audit; 401/403 on every new endpoint; reject → leaves queue + public site + reason stored; photo decisions; CORS preflight for PATCH/DELETE; IP rate limit; concurrency; live end-to-end audit read (reject → approve → delete → reactivate).
+
+**Migration 0004:** `rejection_reason` on spots and photos; two partial indexes for pending queries; `audit_log` unchanged (reason in `metadata` JSONB); runs up/down, `alembic check` clean.
+
+**Known gaps (now planned):** `GET /api/spots/mine` + `/my-spots` missing (Deliverable 6.5); delete has no UI (API-only); rejected photos stay in Cloudinary (pre-launch job); cached 404 delay up to 5 min (on-demand revalidation candidate); CORS PATCH/DELETE bug fixed — **preflight header assertion still to confirm**.
+
+### 3.4 Safety Engine Status (v1 — community only)
+- ✅ Community majority vote; tie → cautious; `unverified` when 0 reports
+- ✅ `safety_report_count` returned on detail endpoint
+- ❌ `official_safety_index` — **deferred to Phase 5+**
+- ❌ Dual-layer conflict resolution — **deferred to Phase 5+**
+
+---
+
+## 4. What Is Left (Roadmap)
+
+### 4.1 Immediate Next Steps (this month)
+
+| Priority | Item | Deliverable | Notes |
+|---|---|---|---|
+| 1 | **Preflight header assertion** | 5.5 follow-up | Assert `Access-Control-Allow-Methods` contents, not just status. 5-min fix. |
+| 2 | **Deliverable 6: Dockerfiles** | 6 | Both apps. Environment parity. Unblocks Railway/Vercel live verification. |
+| 3 | **Deliverable 6.5: `GET /api/spots/mine` + `/my-spots`** | 6.5 | Closes rejection black hole (Risk 6.3). **Do before any public submission push.** |
+| 4 | **Migration 0005 (reduced scope)** | 0005 | `booking_info` JSONB on spots + `saved_spots` table. **No `official_safety_index`.** See §5. |
+| 5 | **`booking_info` strict Pydantic schema + handoff UI decision** | with 0005 | `is_bookable`, `booking_url` (HttpUrl), `whatsapp_contact` (E.164); `extra="forbid"`; interstitial/allowlist decision. |
+| 6 | **`saved_spots` service + endpoints** | after 0005 | IDOR-safe (`CurrentUser`, never client user_id). Endpoints to be added to §6.2 before building. |
+| 7 | **README + pre-launch checklist** | 8 | Spec extensions (`q`, `PATCH /api/photos/{id}`); static-map tradeoff; 5-min ISR; Google-only admin; CSP TODO; Cloudinary cleanup TODO; delete-UI limitation; on-demand revalidation TODO; **hybrid model deferred note**. |
+
+### 4.2 Phase 2 — Core Infrastructure & Backend Hardening (Months 3–6)
+- Finalize FastAPI backend, migrations, PostGIS (largely done)
+- Rate limiting for high-latency carrier networks (done)
+- CI/CD with lint/type/test (done)
+- **Private beta to Phase 1 community (50–100 people)** — Month 6, bar: ≥40% open >2× in 2 weeks
+- 100+ real spots across ≥3 states
+- **Frontend:** paused for redesign. Beta may use TestFlight/Play internal with the current UI or wait for the redesign — founder decision at Month 6.
+
+### 4.3 Phase 3 — Open It Up + Build the Moat (Months 7–10)
+| Month | Focus | Deliverables | "Don't skip" |
+|---|---|---|---|
+| 7 | User contributions | Submit-a-spot + photo upload; basic review/rating; manual moderation queue (still solo) | Safety language = community sentiment, not stated fact. Draft ToS + disclaimer before public submissions. |
+| 8 | Safety layer v1 | Safety score display + safe hours; recent community reports (moderated); manual news/Google Alerts monitoring | — |
+| 9 | **Safety Journey Planner v1** | Route between two points with safety tiers passed through; "avoid after dark" where data exists. Scoped down. | Only once real safety data flows. |
+| 10 | Community growth | Weekly "things to do" push; WhatsApp share cards; badges/leaderboard | — |
+
+**Frontend redesign** lands in this phase (months 7–10 per the revised PRD; actual timing depends on design completion).
+
+### 4.4 Phase 4 — Hardening, Navigation, Public Launch (Months 11–13)
+| Month | Focus | Deliverables | "Don't skip" |
+|---|---|---|---|
+| 11 | Monetization test | One direction: affiliate/referral (transport/accommodation) **or** premium tier scope. Avoid ads. | Direction chosen now; revenue need not be live. |
+| 12 | Security, legal, polish | Auth/data/moderation review; ToS, privacy, safety disclaimer; UI/UX polish; bug fixes | Re-audit safety-reporting for defamation/liability. |
+| 13 | Public launch | Play Store + App Store; community-led launch; monitor moderation load, costs, report accuracy | — |
+
+**Navigation SDK** (turn-by-turn, route safety overlay) is a Phase 4 item (Months 11–13).
+
+### 4.5 Phase 5+ — Post-Launch (deferred)
+- **Hybrid Model:** `official_safety_index` column, dual-layer engine, conflict resolution (community vs. official → more cautious tier + manual flag)
+- **Official reports / security model:** police liaison, municipal data, verified audit stream — after first launch, with a user base and partnerships
+- Public-facing web app beyond admin
+- Admin dashboard beyond moderation queue
+- Offline-first access
+- Transport partnerships (Bolt/Uber "safe ride")
+- Event integrations
+- Date night / hangout planner
+- Student/youth features
+- WhatsApp chatbot
+- Email/password auth
+- Full itinerary planner UI
+- Cloudinary cleanup automation
+- On-demand revalidation
+- CSP/security headers
+
+---
+
+## 5. Migration 0005 — Reduced Scope (v1)
+
+Because the Hybrid Model is deferred, Migration 0005 contains **only**:
+
+```sql
+-- 0005_saved_spots_and_booking_info.py
+
+-- 1. Spots: booking handoff only (no official_safety_index)
+ALTER TABLE spots
+  ADD COLUMN booking_info JSONB NULL;
+
+-- 2. Saved spots: favorites + optional scheduling fields
+CREATE TABLE saved_spots (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  spot_id UUID NOT NULL REFERENCES spots(id) ON DELETE CASCADE,
+  planned_date DATE NULL,
+  notes TEXT NULL,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, spot_id)
+);
+
+CREATE INDEX idx_saved_spots_user_id ON saved_spots(user_id);
+CREATE INDEX idx_saved_spots_planned_date ON saved_spots(user_id, planned_date)
+  WHERE planned_date IS NOT NULL;
+```
+
+**Downgrade:** drop table; drop column. `alembic check` clean after up/down/up.
+
+**Explicitly NOT in 0005:**
+- `official_safety_index` — Phase 5+
+- `display_tier` backfill — still needs the stored-vs-computed decision (§5.1 below)
+- `safety_report_count` trigger — still needs the mechanism decision (§5.1)
+- Itinerary API endpoints — must be added to §6.2 first if in scope
+
+### 5.1 Open Decisions Before Writing 0005
+1. **`planned_date` / `notes` in v1 or later?** If the itinerary scheduler is later, `saved_spots` can ship with just `(user_id, spot_id, saved_at)` and the two fields added in a later migration. Recommendation: **include them now** — they're nullable, zero cost, and avoid a second migration.
+2. **`display_tier`: stored or computed?** v1 currently returns a computed `display_tier` from the service. If it's stored, 0005 needs a backfill + update mechanism. Recommendation: **keep computed**, remove from any stored-column assumption.
+3. **`safety_report_count`: trigger vs. service-layer vs. computed?** Recommendation: **trigger on `safety_reports` insert/delete** (safety-critical field; drift is unacceptable).
+4. **`safety_status` vs. `display_tier`:** two concepts or one? Recommendation: keep `display_tier` (computed safety tier) and treat any `safety_status` as the moderation state, renamed `moderation_status` if added.
+5. **Itinerary endpoints in this deliverable?** If yes, add `GET/POST/PATCH/DELETE /api/itinerary/*` to §6.2 with request/response schemas. If no, `saved_spots` is storage only and the scheduler ships later.
+
+### 5.2 `booking_info` — Strict Pydantic Schema (locked)
+```python
+class BookingInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    is_bookable: bool
+    booking_url: Optional[HttpUrl] = None
+    whatsapp_contact: Optional[str] = Field(
+        default=None, pattern=r"^\+?[1-9]\d{7,14}$"
+    )
+
+    @model_validator(mode="after")
+    def require_contact_if_bookable(self):
+        if self.is_bookable and not (self.booking_url or self.whatsapp_contact):
+            raise ValueError("bookable spots require booking_url or whatsapp_contact")
+        return self
+```
+**Handoff security decision (to add to this PRD before building the UI):** allow any `https://`, allowlist trusted domains, **or** show a "You're leaving Spotfinder to [domain]" interstitial. Recommendation: **interstitial** (middle ground, no maintenance burden).
+
+---
+
+## 6. API Surface
+
+### 6.1 Implemented (12 routes, post-5.5)
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/health` | — | DB connectivity |
+| GET | `/api/spots` | — | filters state/city/category/safety_tier/bbox/q |
+| GET | `/api/spots/nearby` | — | lat/lng/radius_km |
+| GET | `/api/spots/{slug}` | — | `safety_report_count`, `display_tier` |
+| POST | `/api/spots` | user | pending, hidden until approved |
+| PATCH | `/api/spots/{id}` | moderator/admin | decision only |
+| DELETE | `/api/spots/{id}` | admin | soft delete |
+| POST | `/api/safety-reports` | user | 409 on duplicate |
+| GET | `/api/safety-reports/{spot_id}` | — | public |
+| POST | `/api/photos` | user | content-sniffed, 5MB |
+| PATCH | `/api/photos/{id}` | moderator/admin | approve/reject |
+| GET | `/api/admin/moderation-queue` | moderator/admin | pending spots + photos |
+
+### 6.2 Planned (v1)
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/spots/mine` | user | own submissions + status + `rejection_reason` (Deliverable 6.5) |
+| GET | `/api/itinerary` | user | saved spots (if in scope — see §5.1 #5) |
+| POST | `/api/itinerary/{spot_id}` | user | save/favorite |
+| PATCH | `/api/itinerary/{spot_id}` | user | update `planned_date`/`notes` (IDOR-safe) |
+| DELETE | `/api/itinerary/{spot_id}` | user | remove saved spot |
+
+### 6.3 Deferred (Phase 5+)
+- Official index override endpoints
+- Dual-layer engine endpoints
+- Navigation/routing endpoints
+
+---
+
+## 7. Pre-Launch Verification Checklist
+
+- [ ] **Preflight header assertion** — `Access-Control-Allow-Methods` contents asserted on restricted endpoints
+- [ ] **Containerization (Deliverable 6)** — Dockerfiles for API + web, environment parity
+- [ ] **Rejection loop closure (Deliverable 6.5)** — `GET /api/spots/mine` + `/my-spots`, no submission enters a black hole
+- [ ] **CSP** — allow Mapbox `worker-src`, `connect-src` (api.mapbox.com, events.mapbox.com, Firebase), `img-src` (tiles), `frame-src` (Firebase popup)
+- [ ] **Asset cleanup automation** — background job purges rejected/orphaned Cloudinary assets
+- [ ] **Legal & defamation audit** — safety UI frames data as "Community Sentiment," not legal fact; ToS/privacy/disclaimer finalized
+- [ ] **Email/password auth** — documented as post-launch limitation or built
+- [ ] **On-demand revalidation** — approved spot detail page updates immediately (or accepted 5-min tradeoff)
+- [ ] **Pin GitHub Actions to SHA** — before launch
+- [ ] **`booking_info` handoff interstitial** — decision implemented
+- [ ] **Hybrid model deferred note** — README explains community-only v1 and the Phase 5+ path
+
+---
+
+## 8. Risks & Mitigations
+
+| # | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|
+| 8.1 | **Building on unvalidated assumption** — Phase 1 not yet executed | High | High | Run Phase 1 in parallel with backend work; do not skip Month 6 beta bar |
+| 8.2 | **Sandbox reset / data loss** (happened once in 5.5) | Medium | High | Maintain approved-deliverable zips; commit frequently; export chat history; local backups of `.env`, migrations, audit schema |
+| 8.3 | **Rejection black hole** — submitters never told why | High if crowdsourcing launches first | High | Deliverable 6.5 **before** public submission push |
+| 8.4 | **Frontend redesign stalls** — backend ready but no UI for beta | Medium | High | Timebox redesign; beta can use current UI internally; define Month 6 go/no-go on UI readiness |
+| 8.5 | **CORS / preflight regression** | Medium | Medium | Preflight header assertion (§7) |
+| 8.6 | **Safety-report defamation/liability** | Medium | High | Community-sentiment framing; ToS + disclaimer before public submissions; legal consult Month 12 |
+| 8.7 | **Hybrid model scope creep** — official index pulled forward without data/partnerships | Medium | Medium | Explicitly Phase 5+; no schema slot in v1; documented deferral |
+| 8.8 | **Cloudinary orphaned assets** | Low now, scales later | Low | Pre-launch cleanup job |
+| 8.9 | **Cached 404 delay** (up to 5 min on approved detail) | Low | Low | On-demand revalidation or accepted tradeoff |
+| 8.10 | **Solo burnout / disorganization** | Medium | High | Month 1 structure; one spreadsheet/survey/group/page; build-in-public; backend/frontend parallel tracks with clear boundaries |
+| 8.11 | **Scope creep** (web app, dashboard, scout network, offline, partnerships) | High | Medium | Monthly checklist: "Am I building what I don't need yet? Cut it." |
+| 8.12 | **No revenue** — monetization Month 11 | Medium | Medium | Choose direction Month 11; no ads; affiliate/premium scoped, not built |
+| 8.13 | **Name not finalized** | Low | Low | Pick this week; register domain + handle; name matters less than shipping |
+
+---
+
+## 9. Open Decisions & TODOs
+
+### 9.1 Locked
+- ✅ Auth: RS256 cert verification, roles from DB
+- ✅ Safety tier v1: community-only; unverified when 0; majority vote; tie → cautious
+- ✅ **Hybrid model / official index: deferred to Phase 5+**
+- ✅ Pagination/errors/rate limits/CORS
+- ✅ ISR 5-min; static map first; typed client from OpenAPI; admin never decides role client-side
+- ✅ `PATCH /api/photos/{id}` = spec extension
+- ✅ Migrations 0003 (unique index), 0004 (rejection_reason, partial indexes)
+- ✅ Audit log same-transaction, reason in `metadata`
+- ✅ `booking_info` strict Pydantic schema
+- ✅ Frontend paused for redesign; backend continues
+
+### 9.2 Open (need answers before 0005)
+- 🔲 `planned_date`/`notes` in 0005 or later? (Recommendation: include now)
+- 🔲 `display_tier`: stored or computed? (Recommendation: computed)
+- 🔲 `safety_report_count`: trigger vs. service vs. computed? (Recommendation: trigger)
+- 🔲 `safety_status` vs. `display_tier`: rename/clarify? (Recommendation: `moderation_status` vs. `display_tier`)
+- 🔲 Itinerary endpoints in scope now? If yes, add to §6.2 with schemas
+- 🔲 `booking_info` handoff: any https / allowlist / interstitial? (Recommendation: interstitial)
+- 🔲 Name: pick this week
+- 🔲 Beta success bar: define in Month 6
+- 🔲 Monetization direction: choose Month 11
+
+### 9.3 README TODOs (Deliverable 8)
+- `q` and `PATCH /api/photos/{id}` = spec extensions
+- Static-map-first tradeoff; 5-min ISR rationale
+- Google-only admin sign-in limitation
+- CSP TODO (directives list)
+- Cloudinary cleanup TODO
+- Delete-UI limitation (API-only v1)
+- On-demand revalidation TODO
+- **Hybrid model deferred:** community-only v1; `official_safety_index` planned Phase 5+ with police/municipal partnerships
+
+---
+
+## 10. Appendix
+
+### 10.1 Database Schema (v1 target)
+- **users:** id, phone, email, name, avatar, role, created_at
+- **spots:** id, slug, name, description, category, state, city, coordinates (PostGIS), cost_estimate (JSONB), **booking_info (JSONB, 0005)**, safety_report_count, is_active, is_verified, rejection_reason (0004), created_by, created_at, updated_at. *(No `official_safety_index` in v1.)*
+- **reviews:** id, spot_id, user_id, rating, safety_rating, comment, created_at
+- **photos:** id, spot_id, user_id, url, is_approved, rejection_reason (0004), created_at
+- **safety_reports:** id, spot_id, user_id, incident_type, severity_level, description, safe_hours_start/end, reported_at; unique `(spot_id, user_id)` (0003)
+- **saved_spots (0005):** user_id, spot_id, planned_date, notes, saved_at; PK `(user_id, spot_id)`
+- **audit_log:** id, actor, action, previous_state, new_state, metadata (JSONB), created_at
+
+### 10.2 Migrations
+- 0003: unique index on `safety_reports(spot_id, user_id)`
+- 0004: `rejection_reason` on spots/photos; two partial indexes; audit unchanged
+- **0005 (planned):** `booking_info` on spots; `saved_spots` table + indexes
+- 0006+ (Phase 5+): `official_safety_index`, dual-layer fields
+
+### 10.3 Test Counts
+| Stage | API | Web |
+|---|---|---|
+| Deliverable 4 | 71 | — |
+| Deliverable 5 | 73 | 27 |
+| Deliverable 5.5 | **101** | **36** |
+| Deliverable 6.5 (target) | +~10 | +~5 |
+| Migration 0005 (target) | +~12 | — |
+
+### 10.4 CI/CD Status
+- API: ruff, mypy, migrate up, `alembic check`, migrate down/up, seed twice, pytest, pip-audit — green
+- Web: typecheck, lint, tests, build — green
+- Drift checks: OpenAPI (API), type regeneration (web)
+- Secret scan: gitleaks full history
+- Deploy: gated by `DEPLOY_ENABLED`; Railway pre-deploy migrations; health-gated traffic; smoke test; SHA rollback
+- Not verified live: Railway, Cloudinary real uploads, Google live certs, actions pinned to major not SHA
+
+### 10.5 Running Monthly Checklist
+- [ ] Am I still solving the validated problem, or drifting into "cool feature" territory?
+- [ ] Is safety language framed as community sentiment, not stated fact?
+- [ ] Am I building web app/dashboard/team-scale infra I don't need yet? (Cut it.)
+- [ ] Is the community group active and am I listening?
+- [ ] Budget/cost log kept, even at ₦0?
+- [ ] **Is the hybrid model still deferred, or has it crept into v1?**
+
+---
+
+**End of PRD v3.0.** Next action: answer §9.2's five 0005 decisions, confirm the preflight header assertion, then write Migration 0005 (reduced scope) and start Deliverable 6 (Dockerfiles). The hybrid model stays documented and deferred — v1 ships community-only, exactly as built.

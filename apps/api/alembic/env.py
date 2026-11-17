@@ -3,12 +3,17 @@ import os
 from logging.config import fileConfig
 from typing import Any
 
+
 import app.models  # noqa: F401  (registers every model on Base.metadata)
 from alembic import context
 from app.database import Base, normalize_database_url
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 config = context.config
 if config.config_file_name is not None:

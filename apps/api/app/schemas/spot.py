@@ -1,17 +1,18 @@
 import re
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Literal
-
+from typing import Annotated, Any, Literal, Optional
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    HttpUrl,
     StrictBool,
     StringConstraints,
     field_validator,
+    model_validator,
 )
-
+from typing_extensions import Self
 from app.utils.geo import NG_LAT, NG_LNG
 
 Category = Literal["nature", "food", "historical", "hangout", "beach", "park", "other"]
@@ -23,11 +24,25 @@ NIGERIAN_STATES = (
     "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun",
     "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
 )  # fmt: skip
+
 _STATES_BY_LOWER = {s.lower(): s for s in NIGERIAN_STATES}
 _AMENITY_KEY = re.compile(r"^[a-z][a-z0-9_]{0,29}$")
-
 Text = Annotated[str, StringConstraints(strip_whitespace=True)]
 
+
+class BookingInfo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
+    is_bookable: bool
+    booking_url: HttpUrl | None = None
+    whatsapp_contact: Annotated[str, StringConstraints(pattern=r"^\+?[1-9]\d{7,14}$")] | None = None
+
+    @model_validator(mode="after")
+    def require_contact_if_bookable(self) -> Self:
+        if self.is_bookable and not (self.booking_url or self.whatsapp_contact):
+            raise ValueError("Bookable spots require a booking_url or whatsapp_contact")
+        return self
+    
 
 class SpotSummary(BaseModel):
     id: uuid.UUID
@@ -38,7 +53,6 @@ class SpotSummary(BaseModel):
     city: str
     latitude: float
     longitude: float
-    # 'unverified' until at least one community report exists, whatever the stored tier says.
     display_tier: Tier
     safety_report_count: int
 
@@ -55,6 +69,7 @@ class PhotoOut(BaseModel):
 class SpotDetail(SpotSummary):
     safety_tier: Tier
     safety_score: float | None
+    booking_info: BookingInfo | None
     description: str | None
     address: str | None
     cost_estimate_text: str | None
@@ -68,7 +83,7 @@ class SpotDetail(SpotSummary):
 
 class SpotCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
+    
     name: Annotated[Text, StringConstraints(min_length=2, max_length=120)]
     description: Annotated[Text, StringConstraints(max_length=2000)] | None = None
     category: Category
@@ -80,6 +95,7 @@ class SpotCreate(BaseModel):
     cost_estimate_text: Annotated[Text, StringConstraints(max_length=200)] | None = None
     best_time: Annotated[Text, StringConstraints(max_length=120)] | None = None
     amenities: dict[str, StrictBool] = Field(default_factory=dict, max_length=20)
+    booking_info: BookingInfo | None = None
 
     @field_validator("state")
     @classmethod
@@ -107,3 +123,18 @@ class SpotSubmitted(BaseModel):
     slug: str
     name: str
     status: Literal["pending_review"] = "pending_review"
+
+
+class SpotResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    city: str
+    state: str
+    category: str
+    is_active: bool
+    is_verified: bool
+    rejection_reason: Optional[str] = None
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
