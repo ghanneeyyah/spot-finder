@@ -441,3 +441,16 @@ class BookingInfo(BaseModel):
 ---
 
 **End of PRD v3.0.** Next action: answer §9.2's five 0005 decisions, confirm the preflight header assertion, then write Migration 0005 (reduced scope) and start Deliverable 6 (Dockerfiles). The hybrid model stays documented and deferred — v1 ships community-only, exactly as built.
+
+| GET | `/api/spots/mine` | user | own submissions + status + `rejection_reason` (Backend half complete; `/my-spots` UI pending redesign) |
+| GET | `/api/itinerary` | user | Returns user's saved spots joined with spot summary data |
+| POST | `/api/itinerary/{spot_id}` | user | Body: `{planned_date?, notes?}`. 201 Created. 409 if already saved. Validates spot exists & is_active |
+| PATCH | `/api/itinerary/{spot_id}` | user | Body: `{planned_date?, notes?}`. IDOR-safe partial update |
+| DELETE | `/api/itinerary/{spot_id}` | user | 204 No Content. 404 if entry not found |
+
+### 8.14 Known Limitations & Tradeoffs (v1 Backend)
+1. **Delete UI Missing:** Deleting spots is currently an API-only action (admin via DELETE `/api/spots/{id}`).
+2. **Google-Only Admin:** The moderation queue strictly relies on Firebase Google login. Email/password auth is absent.
+3. **Cached 404 Delay:** Newly approved spots may return a 404 for up to 5 minutes on the frontend due to Next.js ISR (pending on-demand revalidation implementation).
+4. **Static Map Tradeoff:** The initial discovery feed uses static map tiles to preserve battery/data; interactive Mapbox GL only initializes upon user tap.
+5. **Hybrid Model Deferred:** The `official_safety_index` and dual-layer conflict resolution engine are entirely deferred to Phase 5+. Safety tiers are community-only in v1.

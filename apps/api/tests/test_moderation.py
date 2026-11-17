@@ -411,8 +411,11 @@ async def test_cors_preflight_allows_the_moderation_methods(client: httpx.AsyncC
             },
         )
         assert response.status_code == 200, method
-        assert method in response.headers["access-control-allow-methods"]
-
+        
+        # Strictly assert the complete allowed list, not just a substring match
+        allowed_methods = response.headers.get("access-control-allow-methods")
+        assert allowed_methods == "DELETE, GET, OPTIONS, PATCH, POST", f"CORS regression: {allowed_methods}"
+        
 
 async def test_moderation_writes_fall_under_the_ip_rate_limit() -> None:
     settings: Settings = make_settings(write_rate_limit_per_minute=2)
